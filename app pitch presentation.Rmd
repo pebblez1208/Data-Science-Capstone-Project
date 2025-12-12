@@ -54,7 +54,7 @@ knitr::include_graphics("app_Screenshot 2025-12-12 161607.png")
 <br/>
 The shinyapp shown in the last slide can be found [here](https://pebblez1208.shinyapps.io/Pebblez_Word_Predictor/)
 <br/>
-and the source code and further work can be found at my [github page]().
+and the source code and further work can be found at my [github page](https://github.com/pebblez1208/Data-Science-Capstone-Project).
 <br/>
 <br/>
 <br/>
