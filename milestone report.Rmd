@@ -1,0 +1,174 @@
+---
+title: "Data Science Capstone"
+author: "Pebblez"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Milestone Report
+
+## Background
+This milestone report is part of the capstone project for the Data Science Specialization curriculum by Johns Hopkins University on Coursera. This project involves applying data science in the area of natural language processing.
+
+The goal of this project is to display exploratory analysis of the data and goals for the eventual app and algorithm.
+
+
+### Data
+The data for this project come from a [Coursera provided corpus](https://d396qusza40orc.cloudfront.net/dsscapstone/dataset/Coursera-SwiftKey.zip) called HC Corpora. The corpora are collected from publicly available sources by a web crawler. The crawler checks for language, so as to mainly get texts consisting of the desired language.
+
+Each entry is tagged with it's date of publication. Where user comments are included they will be tagged with the date of the main entry.
+
+## Reading and Processing Data
+
+```{r include=FALSE}
+library(readr)
+library(dplyr)
+library(tm)
+library(ggplot2)
+library(tidytext)
+library(quanteda)
+library(quanteda.textstats)
+library(R.utils)
+library(stringr)
+```
+
+First we input the datasets and checked the line counts for each. 
+```{r}
+blogs<-readLines('en_US.blogs.txt', warn=TRUE)
+news<-readLines('en_US.news.txt', warn=TRUE)
+twitter<-readLines('en_US.twitter.txt', warn=TRUE)
+```
+
+```{r echo=FALSE}
+blogs_lines<-countLines("en_US.blogs.txt")[1]
+news_lines<- countLines("en_US.news.txt")[1]
+twitter_lines<- countLines("en_US.twitter.txt")[1]
+print(line_counts<- cbind(blogs_lines, news_lines, twitter_lines))
+```
+
+Then we created a sample set from each file and retrieved word counts and basic data tables. 
+```{r}
+set.seed(1211)
+blogs_sam<-blogs[sample(1:length(blogs),5000)]
+news_sam<-news[sample(1:length(news),5000)]
+twit_sam<-twitter[sample(1:length(twitter),5000)]
+```
+
+```{r echo=FALSE}
+blogs_totalwc<- sum(wcs_blogs <- str_count(blogs_sam, "\\w+"))
+news_totalwc<- sum(wcs_news <- str_count(news_sam, "\\w+"))
+twit_totalwc<- sum(wcs_twit <- str_count(twit_sam, "\\w+"))
+print(word_counts<- cbind(blogs_totalwc, news_totalwc, twit_totalwc))
+
+summary(blogs_sam); summary(news_sam); summary(twit_sam)
+head(blogs_sam, 3)
+head(news_sam, 3)
+head(twit_sam, 3)
+```
+
+Then we combined each sample set into one dataset for use in the remainder of our exploratory analysis.
+```{r}
+sam_data<- c(blogs_sam, news_sam, twit_sam)
+file_name <- "data.txt"
+writeLines(sam_data, file_name)
+```
+
+```{r include=FALSE}
+rm(blogs, news, twitter, blogs_sam, news_sam, twit_sam)
+```
+
+Next we prepocessed the data using tm pacakge tools to remove english stopwords, punctuation, and extra white space. We also converted all strings to lowercase and cleaned data to remove offensive words. For the last step, we used a profanity list downloaded [here](https://github.com/LDNOOBW/List-of-Dirty-Naughty-Obscene-and-Otherwise-Bad-Words).
+```{r echo=FALSE}
+proc_sam_data<- sam_data %>% tolower() %>% 
+    removeWords(stopwords("en")) %>%
+    removePunctuation() %>% 
+    stripWhitespace()
+
+profanity_list<-readLines('en_profanity.txt', warn=TRUE)
+
+cleandata<- gsub(paste(profanity_list, collapse = "|"), "", proc_sam_data, 
+         ignore.case=FALSE)
+```
+
+## Exploratory Analysis
+To first explore the data, we took the preprocessed data, converted it to a dataframe format and followed tokenizing steps to discover the most frequent words.
+```{r}
+cleandf<- as.data.frame(cleandata)
+token_data<- cleandf %>% unnest_tokens(word, cleandata)
+tokenCount <- token_data %>% count(word, sort = T)
+head(tokenCount, 5)
+```
+
+```{r echo=FALSE, fig.cap="Most Frequent Words"}
+tokenCount %>% filter(n>950) %>%
+    ggplot(aes(word,n)) +
+    geom_bar(stat="identity", fill = "royalblue2") +
+    ggtitle("Top 5 Most Frequent Words") +
+    xlab("Word") + ylab("Frequency") +
+    theme_bw() + theme(axis.text.x=element_text(angle=45, hjust=1)) +
+    theme(plot.title = element_text(hjust = 0.5))
+```
+
+Then we created frequency graphs for the most common n-grams of length 1, 2, and 3.
+```{r echo=FALSE, fig.cap="Unigrams"}
+unigrams<- cleandf %>% unnest_tokens(word, cleandata)
+
+uniCount <- unigrams %>% count(word, sort = T)
+uniCount %>%
+    filter(n >= 500) %>%
+    ggplot(aes(word,n)) +
+    geom_bar(stat="identity", fill = "steelblue2") +
+    ggtitle("Unigrams with Frequencies >= 500") +
+    xlab("Unigrams") + ylab("Frequency") +
+    theme_bw() + theme(axis.text.x=element_text(angle=45, hjust=1)) +
+    theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r echo=FALSE, fig.cap="Bigrams."}
+bigrams<- cleandf %>% unnest_ngrams(word, cleandata, n=2) %>% na.omit()
+biCount <- bigrams %>% count(word, sort = T)
+biCount %>%
+    filter(n >= 40) %>%
+    ggplot(aes(word,n)) +
+    geom_bar(stat="identity", fill = "skyblue2") +
+    ggtitle("Bigrams with Frequencies >= 40") +
+    xlab("Bigrams") + ylab("Frequency") +
+    theme_bw() + theme(axis.text.x=element_text(angle=45, hjust=1)) +
+    theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r echo=FALSE, fig.cap="Trigrams"}
+trigrams<- cleandf %>% unnest_ngrams(word, cleandata, n=3) %>% na.omit()
+triCount <- trigrams %>% count(word, sort = T)
+triCount %>%
+    filter(n >= 5) %>%
+    ggplot(aes(word,n)) +
+    geom_bar(stat="identity", fill = "lightblue2") +
+    ggtitle("Trigrams with Frequencies >= 5") +
+    xlab("Trigrams") + ylab("Frequency") +
+    theme_bw() + theme(axis.text.x=element_text(angle=45, hjust=1)) +
+    theme(plot.title = element_text(hjust = 0.5))
+```
+
+We also considered how many unique words were needed to cover 50% and 90% of all word instances in the dataset. This analysis shows that 1099 unique words were needed to account for 50% of all words in the dataset, and 14290 were needed to account for 90%.
+```{r}
+tokenCountfreq<- tokenCount %>% 
+    mutate(word_freq = cumsum(n))
+total <- sum(tokenCountfreq$n)
+
+tokenCountfreq <- tokenCountfreq %>% 
+    mutate(perc_cov = ((word_freq/total) * 100))
+
+sum(tokenCountfreq$perc_cov < 50) + 1
+sum(tokenCountfreq$perc_cov < 90) + 1
+```
+
+## Next Steps
+
+With the above exploratory analysis informing us about the frequency of words, word pairs, and word triads. In the next sections of the course we will use these n-grams and frequency tables created from them to finalize a predictive algorithm, the model as a Shiny application and create a deck to be able to present the final result.
+
+The predictive algorithm will use an n-gram backoff model, where it will start by looking for the most common 3-gram that includes the provided text, and either choose the most common one based on frequency, or revert to the immediate smaller n-gram all the way to the unigram.
